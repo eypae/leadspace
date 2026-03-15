@@ -14,6 +14,10 @@ interface ClientListProps {
 }
 
 // Build a lookup: clientId → segments[]
+// Handles two shapes that come back from the API:
+//   List endpoint:   client_segments: [{ segment_id, segments: { id, name, color } }]
+//   Detail endpoint: client_segments: [{ segment_id, segments: { id, name, color } }]
+// Falls back to looking up by segment_id in the segments prop if nested data is absent.
 function buildClientSegmentMap(
   clients: Client[],
   segments: Segment[],
@@ -25,14 +29,21 @@ function buildClientSegmentMap(
   > = {};
 
   for (const client of clients) {
-    if (client.client_segments) {
-      result[client.id] = client.client_segments
-        .map((cs) => segMap[cs.segment_id])
-        .filter(Boolean);
-    } else {
+    if (!client.client_segments?.length) {
       result[client.id] = [];
+      continue;
     }
+
+    result[client.id] = client.client_segments
+      .map((cs) => {
+        // Prefer the nested segments object returned by the API
+        if (cs.segments && cs.segments.id) return cs.segments;
+        // Fall back to looking up by segment_id in the segments prop
+        return segMap[cs.segment_id] ?? null;
+      })
+      .filter(Boolean) as { id: string; name: string; color: string | null }[];
   }
+
   return result;
 }
 
@@ -122,7 +133,6 @@ export default function ClientList({
 
   return (
     <div className="client-list-container">
-      {/* Table header */}
       <div className="client-table-header">
         <span>Client</span>
         <span>Segment</span>
@@ -131,7 +141,6 @@ export default function ClientList({
         <span />
       </div>
 
-      {/* Rows */}
       {clients.map((client) => (
         <ClientRow
           key={client.id}

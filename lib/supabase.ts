@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { Client, Segment, Message, Broadcast } from "@/types";
+import type { Client, Segment, Message, Broadcast } from "@/types";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -18,28 +18,54 @@ export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
 // CLIENT helpers
 // ─────────────────────────────────────────────
 
-/** Fetch all clients, optionally filtered by segment */
+// The select string used for every client list query.
+// Includes client_segments with nested segment data so the UI
+// can display segment badges without a second fetch.
+const CLIENT_LIST_SELECT = `
+  *,
+  client_segments (
+    segment_id,
+    segments ( id, name, color )
+  )
+` as const;
+
+/** Fetch all clients, optionally filtered by segment.
+ *  Always includes client_segments with nested segment data.
+ */
 export async function getClients(segmentId?: string): Promise<Client[]> {
   if (segmentId) {
-    const { data, error } = await supabaseAdmin
+    // First, fetch client_ids for the segment
+    const { data: segmentClients, error: segmentError } = await supabaseAdmin
       .from("client_segments")
-      .select("client_id, clients(*)")
+      .select("client_id")
       .eq("segment_id", segmentId);
 
+    if (segmentError) throw segmentError;
+    const clientIds = (segmentClients ?? []).map((row) => row.client_id);
+
+    if (clientIds.length === 0) return [];
+
+    // Then, fetch clients with those ids
+    const { data, error } = await supabaseAdmin
+      .from("clients")
+      .select(CLIENT_LIST_SELECT)
+      .in("id", clientIds)
+      .order("last_message_at", { ascending: false, nullsFirst: false });
+
     if (error) throw error;
-    return (data ?? []).map((row: any) => row.clients as Client);
+    return data ?? [];
   }
 
   const { data, error } = await supabaseAdmin
     .from("clients")
-    .select("*")
+    .select(CLIENT_LIST_SELECT)
     .order("last_message_at", { ascending: false, nullsFirst: false });
 
   if (error) throw error;
   return data ?? [];
 }
 
-/** Look up a client by their WhatsApp phone number (wa_id = digits only, no +) */
+/** Look up a client by their WhatsApp ID (digits only, no +) */
 export async function getClientByWaId(waId: string): Promise<Client | null> {
   const { data, error } = await supabaseAdmin
     .from("clients")
@@ -52,7 +78,7 @@ export async function getClientByWaId(waId: string): Promise<Client | null> {
 }
 
 /** Upsert a client from an incoming webhook message.
- *  Creates the record if it doesn't exist yet, updates wa_id + last_message_at otherwise.
+ *  Creates the record if new, updates wa_id + last_message_at otherwise.
  */
 export async function upsertClientFromWebhook(
   waId: string,
@@ -169,7 +195,7 @@ export async function saveMessage(
   return data;
 }
 
-/** Fetch the last N messages for a client (newest last) */
+/** Fetch the last N messages for a client (oldest first) */
 export async function getMessages(
   clientId: string,
   limit = 50,

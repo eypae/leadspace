@@ -8,9 +8,8 @@ import {
 
 // ─────────────────────────────────────────────
 // GET /api/clients
-// Query params:
-//   ?segmentId=<uuid>   → filter by segment
-//   ?id=<uuid>          → fetch single client with their segments + last messages
+// ?segmentId=<uuid>  → filter by segment
+// ?id=<uuid>         → single client with segments + last 20 messages
 // ─────────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
@@ -64,11 +63,18 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Derive wa_id from phone number by stripping all non-digits.
+  // e.g. '+6598228852' → '6598228852'
+  // This allows sending the first message to manually-added clients
+  // without waiting for them to message you first via WhatsApp.
+  const wa_id = phone.replace(/\D/g, "") || null;
+
   const { data: client, error } = await supabaseAdmin
     .from("clients")
     .insert({
       name,
       phone,
+      wa_id,
       followup_date: followup_date ?? null,
       followup_note: followup_note ?? null,
     })
@@ -76,7 +82,6 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (error) {
-    // Unique constraint on phone
     if (error.code === "23505") {
       return NextResponse.json(
         { error: "A client with this phone number already exists" },
@@ -115,7 +120,6 @@ export async function PATCH(req: NextRequest) {
   if (!id)
     return NextResponse.json({ error: "id is required" }, { status: 400 });
 
-  // Update scalar fields
   const updates: Record<string, unknown> = {};
   if (name !== undefined) updates.name = name;
   if (followup_date !== undefined) updates.followup_date = followup_date;
@@ -131,7 +135,6 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  // Segment membership changes
   if (Array.isArray(addSegmentIds)) {
     for (const segId of addSegmentIds) await addClientToSegment(id, segId);
   }

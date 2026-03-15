@@ -5,6 +5,8 @@ import Sidebar from "@/components/layout/Sidebar";
 import TopBar from "@/components/layout/TopBar";
 import ClientList from "@/components/clients/ClientList";
 import ClientDetail from "@/components/clients/ClientDetail";
+import AddClientModal from "@/components/clients/AddClientModal";
+import BroadcastModal from "@/components/clients/BroadcastModal";
 import { useClients, useClientDetail } from "@/hooks/useClients";
 import { useSegments } from "@/hooks/useSegments";
 import type { Client, ToastMessage } from "@/types";
@@ -126,8 +128,6 @@ const page = () => {
     (c) => getFollowUpStatus(c.followup_date) === "overdue",
   ).length;
 
-  console.log(clients);
-
   return (
     <div className="app-shell">
       {/* Sidebar */}
@@ -234,6 +234,25 @@ const page = () => {
             onToast={showToast}
           />
         </div>
+
+        
+      {/* Modals */}
+      {showAddModal && (
+        <AddClientModal
+          segments={segments}
+          onClose={() => setShowAddModal(false)}
+          onSubmit={handleAddClient}
+        />
+      )}
+ 
+      {showBroadcast && (
+        <BroadcastModal
+          segments={segments}
+          clientCounts={clientCounts}
+          onClose={() => setShowBroadcast(false)}
+          onToast={showToast}
+        />
+      )}
       </div>
     </div>
   );

@@ -46,9 +46,9 @@ export function useClients(segmentId?: string) {
       const data = await res.json();
       throw new Error(data.error ?? "Failed to create client");
     }
-    const newClient = await res.json();
-    setClients((prev) => [newClient, ...prev]);
-    return newClient;
+    // Refetch so the new client comes back with full client_segments data
+    await fetchClients();
+    return await res.json().catch(() => null);
   };
 
   const updateClient = async (
@@ -66,9 +66,20 @@ export function useClients(segmentId?: string) {
       body: JSON.stringify({ id, ...payload }),
     });
     if (!res.ok) throw new Error("Failed to update client");
-    setClients((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, ...payload } : c)),
-    );
+
+    const hasSegmentChanges =
+      (payload.addSegmentIds?.length ?? 0) > 0 ||
+      (payload.removeSegmentIds?.length ?? 0) > 0;
+
+    if (hasSegmentChanges) {
+      // Refetch to get accurate client_segments from the server
+      await fetchClients();
+    } else {
+      // Optimistic update is safe for scalar fields only
+      setClients((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, ...payload } : c)),
+      );
+    }
   };
 
   const deleteClient = async (id: string) => {

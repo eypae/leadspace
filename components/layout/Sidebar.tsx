@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import type { Segment } from "@/types";
 import { getSegmentColor } from "@/lib/utils";
+import { useAuthStore } from "@/store/authStore";
 
 interface SidebarProps {
   segments: Segment[];
@@ -25,7 +26,9 @@ export default function Sidebar({
   isOpen,
   onClose,
 }: SidebarProps) {
-  // Close on escape
+  const { profile, signOut, loading } = useAuthStore();
+
+  // Close on Escape key
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -143,23 +146,120 @@ export default function Sidebar({
           )}
         </nav>
 
-        {/* Footer */}
+        {/* Footer — agent profile + sign out */}
         <div
           style={{
-            padding: "12px 16px",
+            padding: "12px 14px",
             borderTop: "1px solid var(--gray-100)",
             flexShrink: 0,
           }}
         >
-          <div
-            style={{ fontSize: 11, color: "var(--gray-400)", lineHeight: 1.5 }}
+          {/* Agent info */}
+          {profile && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 9,
+                marginBottom: 10,
+                padding: "8px 6px",
+                borderRadius: "var(--radius-md)",
+                background: "var(--gray-50)",
+              }}
+            >
+              {/* Avatar circle */}
+              <div
+                style={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: "50%",
+                  background: "var(--brand-100)",
+                  color: "var(--brand-600)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  flexShrink: 0,
+                }}
+              >
+                {profile.display_name
+                  .split(" ")
+                  .map((w) => w[0])
+                  .join("")
+                  .slice(0, 2)
+                  .toUpperCase()}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div
+                  style={{
+                    fontSize: 12.5,
+                    fontWeight: 500,
+                    color: "var(--gray-800)",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}
+                >
+                  {profile.display_name}
+                </div>
+                <div
+                  style={{
+                    fontSize: 11,
+                    color: "var(--gray-400)",
+                    textTransform: "capitalize",
+                  }}
+                >
+                  {profile.role}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Sign out button */}
+          <button
+            onClick={signOut}
+            disabled={loading}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              width: "100%",
+              padding: "7px 8px",
+              borderRadius: "var(--radius-md)",
+              fontSize: 13,
+              color: "var(--gray-500)",
+              background: "none",
+              border: "none",
+              cursor: loading ? "not-allowed" : "pointer",
+              transition:
+                "background var(--transition-fast), color var(--transition-fast)",
+              fontFamily: "var(--font-sans)",
+              opacity: loading ? 0.6 : 1,
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "var(--color-danger-bg)";
+              e.currentTarget.style.color = "var(--color-danger-text)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "none";
+              e.currentTarget.style.color = "var(--gray-500)";
+            }}
           >
-            <span style={{ fontWeight: 500, color: "var(--gray-600)" }}>
-              WA Lead CRM
-            </span>
-            <br />
-            Real estate edition
-          </div>
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <polyline points="16 17 21 12 16 7" />
+              <line x1="21" y1="12" x2="9" y2="12" />
+            </svg>
+            Sign out
+          </button>
         </div>
       </aside>
     </>

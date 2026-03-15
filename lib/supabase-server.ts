@@ -1,0 +1,57 @@
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
+import type { NextRequest, NextResponse } from "next/server";
+
+// Used in Server Components, API Route Handlers, and Server Actions.
+// Reads cookies from the Next.js cookie store.
+export async function createSupabaseServerClient() {
+  const cookieStore = await cookies();
+
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll(cookiesToSet) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) => {
+              cookieStore.set(name, value, options);
+            });
+          } catch {
+            // setAll can throw in Server Components — safe to ignore
+          }
+        },
+      },
+    },
+  );
+}
+
+// Used exclusively in middleware.ts — receives req/res directly
+// so it can read and refresh cookies without the Next.js cookie store.
+export function createSupabaseMiddlewareClient(
+  req: NextRequest,
+  res: NextResponse,
+) {
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return req.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) =>
+            req.cookies.set(name, value),
+          );
+          cookiesToSet.forEach(({ name, value, options }) =>
+            res.cookies.set(name, value, options),
+          );
+        },
+      },
+    },
+  );
+}
