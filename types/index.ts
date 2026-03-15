@@ -1,3 +1,8 @@
+// ─────────────────────────────────────────────
+// Core domain types
+// Used by: API routes, lib/supabase.ts, hooks, components
+// ─────────────────────────────────────────────
+
 export type Direction = 'in' | 'out'
 export type MessageStatus = 'sent' | 'delivered' | 'read' | 'failed'
 
@@ -10,6 +15,9 @@ export interface Client {
   followup_note: string | null
   last_message_at: string | null
   created_at: string
+  // Joined fields — present on single-client detail endpoint only
+  client_segments?: { segment_id: string; segments: Segment }[]
+  messages?: Message[]
 }
 
 export interface Segment {
@@ -44,7 +52,11 @@ export interface Broadcast {
   sent_at: string
 }
 
+// ─────────────────────────────────────────────
 // WhatsApp Cloud API webhook payload types
+// Used by: app/api/webhook/route.ts
+// ─────────────────────────────────────────────
+
 export interface WAWebhookPayload {
   object: string
   entry: WAEntry[]
@@ -86,4 +98,15 @@ export interface WAStatus {
   status: 'sent' | 'delivered' | 'read' | 'failed'
   timestamp: string
   recipient_id: string
+}
+
+// ─────────────────────────────────────────────
+// UI-only types
+// Used by: components, hooks (never imported in API routes)
+// ─────────────────────────────────────────────
+
+export interface ToastMessage {
+  id: string
+  text: string
+  type: 'success' | 'error' | 'info'
 }

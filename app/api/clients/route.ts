@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   supabaseAdmin,
   getClients,
-  setFollowUpDate,
   addClientToSegment,
   removeClientFromSegment,
 } from "@/lib/supabase";
@@ -31,7 +30,7 @@ export async function GET(req: NextRequest) {
       `,
       )
       .eq("id", id)
-      .order("created_at", { referencedTable: "messages", ascending: false })
+      .order("created_at", { referencedTable: "messages", ascending: true })
       .limit(20, { referencedTable: "messages" })
       .single();
 
