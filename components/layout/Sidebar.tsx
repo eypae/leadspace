@@ -51,8 +51,8 @@ export default function Sidebar({
         {/* Logo */}
         <div className="sidebar-header">
           <div className="sidebar-logo">
-            <div className="sidebar-logo-mark">W</div>
-            <span>WA CRM</span>
+            <div className="sidebar-logo-mark">L</div>
+            <span>LeadSpace</span>
           </div>
         </div>
 

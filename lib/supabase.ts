@@ -178,6 +178,7 @@ export async function saveMessage(
   direction: "in" | "out",
   body: string,
   waMsgId?: string,
+  isTemplate = false,
 ): Promise<Message> {
   const { data, error } = await supabaseAdmin
     .from("messages")
@@ -187,6 +188,7 @@ export async function saveMessage(
       body,
       wa_msg_id: waMsgId ?? null,
       status: direction === "out" ? "sent" : "delivered",
+      is_template: isTemplate,
     })
     .select()
     .single();

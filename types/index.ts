@@ -40,6 +40,7 @@ export interface Message {
   body: string;
   wa_msg_id: string | null;
   status: MessageStatus;
+  is_template: boolean;
   created_at: string;
 }
 

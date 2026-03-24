@@ -47,6 +47,8 @@ export async function POST(req: NextRequest) {
     // Send via WhatsApp Cloud API
     const waMsgId = await sendTextMessage(client.wa_id, message.trim());
 
+    const now = new Date().toISOString();
+
     // Persist the outbound message
     const saved = await saveMessage(
       client.id,
@@ -54,6 +56,12 @@ export async function POST(req: NextRequest) {
       message.trim(),
       waMsgId ?? undefined,
     );
+
+    // Update last_message_at so the ClientRow shows the correct time
+    await supabaseAdmin
+      .from("clients")
+      .update({ last_message_at: now })
+      .eq("id", client.id);
 
     return NextResponse.json({ success: true, messageId: saved.id, waMsgId });
   } catch (err: any) {

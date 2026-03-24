@@ -15,7 +15,7 @@ interface ClientDetailProps {
   onToast: (msg: string, type?: "success" | "error") => void;
 }
 
-type Tab = "chat" | "info";
+type Tab = "messages" | "info";
 
 export default function ClientDetail({
   client,
@@ -24,27 +24,22 @@ export default function ClientDetail({
   onUpdate,
   onToast,
 }: ClientDetailProps) {
-  const [tab, setTab] = useState<Tab>("chat");
-  const [messageText, setMessageText] = useState("");
-  const [sending, setSending] = useState(false);
+  const [tab, setTab] = useState<Tab>("messages");
   const [messages, setMessages] = useState<Message[]>([]);
   const [editingFollowUp, setEditingFollowUp] = useState(false);
   const [followUpDate, setFollowUpDate] = useState("");
   const [followUpNote, setFollowUpNote] = useState("");
   const chatEndRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Sync messages and follow-up fields when client changes
   useEffect(() => {
     if (!client) return;
     setMessages(client.messages ?? []);
     setFollowUpDate(client.followup_date ?? "");
     setFollowUpNote(client.followup_note ?? "");
-    setTab("chat");
+    setTab("messages");
     setEditingFollowUp(false);
   }, [client?.id]);
 
-  // Scroll to bottom when messages change
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
@@ -55,42 +50,12 @@ export default function ClientDetail({
     .map((cs) => segments.find((s) => s.id === cs.segment_id))
     .filter(Boolean) as Segment[];
 
-  async function handleSendMessage() {
-    if (!messageText.trim() || !client) return;
-    setSending(true);
-    try {
-      const res = await fetch("/api/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          clientId: client.id,
-          message: messageText.trim(),
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-
-      // Optimistically add message to chat
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: data.messageId,
-          client_id: client.id,
-          direction: "out",
-          body: messageText.trim(),
-          wa_msg_id: data.waMsgId,
-          status: "sent",
-          created_at: new Date().toISOString(),
-        },
-      ]);
-      setMessageText("");
-      onToast("Message sent");
-    } catch (err: any) {
-      onToast(err.message ?? "Failed to send message", "error");
-    } finally {
-      setSending(false);
-    }
-  }
+  // Only show inbound messages and template broadcasts
+  // Regular outbound free-form messages are excluded — WhatsApp only
+  // delivers them within a 24h service window so their status is unreliable
+  const visibleMessages = messages.filter(
+    (m) => m.direction === "in" || m.is_template,
+  );
 
   async function handleSaveFollowUp() {
     if (!client) return;
@@ -103,13 +68,6 @@ export default function ClientDetail({
       onToast("Follow-up date saved");
     } catch {
       onToast("Failed to save follow-up", "error");
-    }
-  }
-
-  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
     }
   }
 
@@ -145,7 +103,7 @@ export default function ClientDetail({
             target="_blank"
             rel="noopener noreferrer"
             className="btn btn-secondary btn-sm"
-            title="Open in WhatsApp"
+            title="Open in WhatsApp to send a message"
           >
             <svg
               width="13"
@@ -157,7 +115,7 @@ export default function ClientDetail({
             >
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
             </svg>
-            WA
+            Chat
           </a>
         )}
         <button
@@ -187,7 +145,7 @@ export default function ClientDetail({
           flexShrink: 0,
         }}
       >
-        {(["chat", "info"] as Tab[]).map((t) => (
+        {(["messages", "info"] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -214,94 +172,180 @@ export default function ClientDetail({
         ))}
       </div>
 
-      {/* ── CHAT TAB ── */}
-      {tab === "chat" && (
+      {/* ── MESSAGES TAB ── */}
+      {tab === "messages" && (
         <>
+          {/* Info banner explaining what's shown */}
+          <div
+            style={{
+              padding: "8px 14px",
+              background: "var(--color-info-bg)",
+              borderBottom: "1px solid var(--color-info-border)",
+              fontSize: 11.5,
+              color: "var(--color-info-text)",
+              lineHeight: 1.5,
+              flexShrink: 0,
+              display: "flex",
+              gap: 7,
+              alignItems: "flex-start",
+            }}
+          >
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              style={{ flexShrink: 0, marginTop: 1 }}
+            >
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="8" x2="12" y2="12" />
+              <line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+            <span>
+              Shows inbound messages and broadcasts. To send a new message, use{" "}
+              <strong>Chat</strong> to open WhatsApp directly.
+            </span>
+          </div>
+
+          {/* Message list */}
           <div className="chat-container scrollbar-hide">
-            {messages.length === 0 && (
+            {visibleMessages.length === 0 ? (
               <div
                 style={{
                   textAlign: "center",
                   color: "var(--gray-400)",
                   fontSize: 13,
-                  padding: "24px 0",
+                  padding: "32px 16px",
+                  lineHeight: 1.6,
                 }}
               >
-                No messages yet
-              </div>
-            )}
-            {messages.map((msg) => (
-              <div
-                key={msg.id}
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems:
-                    msg.direction === "out" ? "flex-end" : "flex-start",
-                }}
-              >
-                <div className={`chat-bubble chat-bubble-${msg.direction}`}>
-                  {msg.body}
+                <div style={{ marginBottom: 6 }}>No messages yet</div>
+                <div style={{ fontSize: 12 }}>
+                  Messages from this client and broadcasts you send will appear
+                  here.
                 </div>
+              </div>
+            ) : (
+              visibleMessages.map((msg) => (
                 <div
-                  className="chat-time"
+                  key={msg.id}
                   style={{
-                    textAlign: msg.direction === "out" ? "right" : "left",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems:
+                      msg.direction === "out" ? "flex-end" : "flex-start",
                   }}
                 >
-                  {formatChatTime(msg.created_at)}
-                  {msg.direction === "out" && (
-                    <span style={{ marginLeft: 4 }}>
-                      {msg.status === "read"
-                        ? "✓✓"
-                        : msg.status === "delivered"
-                          ? "✓✓"
-                          : "✓"}
-                    </span>
+                  {/* Template label for outbound broadcasts */}
+                  {msg.direction === "out" && msg.is_template && (
+                    <div
+                      style={{
+                        fontSize: 10.5,
+                        color: "var(--gray-400)",
+                        marginBottom: 3,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 4,
+                      }}
+                    >
+                      <svg
+                        width="10"
+                        height="10"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
+                        <path d="m3 11 19-9-9 19-2-8-8-2z" />
+                      </svg>
+                      Broadcast
+                    </div>
                   )}
+
+                  <div
+                    className={`chat-bubble chat-bubble-${msg.direction}`}
+                    style={
+                      msg.is_template
+                        ? {
+                            borderLeft: "3px solid rgba(255,255,255,0.4)",
+                            opacity: 0.95,
+                          }
+                        : undefined
+                    }
+                  >
+                    {msg.body}
+                  </div>
+
+                  <div
+                    className="chat-time"
+                    style={{
+                      textAlign: msg.direction === "out" ? "right" : "left",
+                    }}
+                  >
+                    {formatChatTime(msg.created_at)}
+                    {msg.direction === "out" && (
+                      <span style={{ marginLeft: 4 }}>
+                        {msg.status === "read"
+                          ? "✓✓"
+                          : msg.status === "delivered"
+                            ? "✓✓"
+                            : "✓"}
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
             <div ref={chatEndRef} />
           </div>
 
-          {/* Chat input */}
-          <div className="chat-input-bar">
-            <textarea
-              ref={textareaRef}
-              className="form-textarea"
-              style={{
-                flex: 1,
-                minHeight: "unset",
-                height: 36,
-                resize: "none",
-                padding: "8px 12px",
-              }}
-              placeholder="Type a message… (Enter to send)"
-              value={messageText}
-              onChange={(e) => setMessageText(e.target.value)}
-              onKeyDown={handleKeyDown}
-              rows={1}
-              disabled={sending}
-            />
-            <button
-              className="btn btn-primary btn-icon"
-              onClick={handleSendMessage}
-              disabled={!messageText.trim() || sending}
-              aria-label="Send"
-            >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
+          {/* Footer — open in WhatsApp button */}
+          <div
+            style={{
+              padding: "12px 14px",
+              borderTop: "1px solid var(--gray-100)",
+              flexShrink: 0,
+              background: "var(--gray-0)",
+            }}
+          >
+            {client.wa_id ? (
+              <a
+                href={`https://wa.me/${client.wa_id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn-primary"
+                style={{
+                  width: "100%",
+                  justifyContent: "center",
+                  height: 36,
+                  fontSize: 13,
+                }}
               >
-                <line x1="22" y1="2" x2="11" y2="13" />
-                <polygon points="22 2 15 22 11 13 2 9 22 2" />
-              </svg>
-            </button>
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                </svg>
+                Open WhatsApp to send a message
+              </a>
+            ) : (
+              <div
+                style={{
+                  fontSize: 12,
+                  color: "var(--gray-400)",
+                  textAlign: "center",
+                }}
+              >
+                No WhatsApp ID — add a phone number to enable messaging
+              </div>
+            )}
           </div>
         </>
       )}
