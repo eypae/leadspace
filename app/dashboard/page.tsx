@@ -9,10 +9,10 @@ import AddClientModal from "@/components/clients/AddClientModal";
 import BroadcastModal from "@/components/clients/BroadcastModal";
 import { useClients, useClientDetail } from "@/hooks/useClients";
 import { useSegments } from "@/hooks/useSegments";
-import type { Client, ToastMessage } from "@/types";
 import { getFollowUpStatus } from "@/lib/utils";
+import type { Client, ToastMessage } from "@/types";
 
-const page = () => {
+export default function DashboardPage() {
   const [activeSegment, setActiveSegment] = useState<string | null>(null);
   const [activeClientId, setActiveClientId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -145,6 +145,8 @@ const page = () => {
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
       />
+
+      {/* Main */}
       <div className="main-content">
         {/* Top bar */}
         <TopBar
@@ -231,11 +233,15 @@ const page = () => {
             segments={segments}
             onClose={() => setActiveClientId(null)}
             onUpdate={handleUpdateClient}
+            onDelete={async (id) => {
+              await deleteClient(id);
+              setActiveClientId(null);
+            }}
             onToast={showToast}
           />
         </div>
+      </div>
 
-        
       {/* Modals */}
       {showAddModal && (
         <AddClientModal
@@ -244,7 +250,7 @@ const page = () => {
           onSubmit={handleAddClient}
         />
       )}
- 
+
       {showBroadcast && (
         <BroadcastModal
           segments={segments}
@@ -253,9 +259,45 @@ const page = () => {
           onToast={showToast}
         />
       )}
+
+      {/* Toasts */}
+      <div
+        style={{
+          position: "fixed",
+          bottom: 24,
+          right: 24,
+          display: "flex",
+          flexDirection: "column",
+          gap: 8,
+          zIndex: 100,
+          pointerEvents: "none",
+        }}
+      >
+        {toasts.map((toast) => (
+          <div
+            key={toast.id}
+            className="toast"
+            style={{
+              background:
+                toast.type === "error"
+                  ? "var(--color-danger-text)"
+                  : toast.type === "info"
+                    ? "var(--color-info-text)"
+                    : "var(--gray-900)",
+            }}
+          >
+            {toast.text}
+          </div>
+        ))}
       </div>
+
+      {/* Mobile menu button inject — shown via CSS on small screens */}
+      <style>{`
+        @media (max-width: 767px) {
+          #menu-btn { display: flex !important; }
+          .hide-xs { display: none; }
+        }
+      `}</style>
     </div>
   );
-};
-
-export default page;
+}

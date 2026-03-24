@@ -12,6 +12,7 @@ interface ClientDetailProps {
   segments: Segment[];
   onClose: () => void;
   onUpdate: (id: string, payload: any) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
   onToast: (msg: string, type?: "success" | "error") => void;
 }
 
@@ -22,6 +23,7 @@ export default function ClientDetail({
   segments,
   onClose,
   onUpdate,
+  onDelete,
   onToast,
 }: ClientDetailProps) {
   const [tab, setTab] = useState<Tab>("messages");
@@ -29,6 +31,8 @@ export default function ClientDetail({
   const [editingFollowUp, setEditingFollowUp] = useState(false);
   const [followUpDate, setFollowUpDate] = useState("");
   const [followUpNote, setFollowUpNote] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -38,6 +42,7 @@ export default function ClientDetail({
     setFollowUpNote(client.followup_note ?? "");
     setTab("messages");
     setEditingFollowUp(false);
+    setConfirmDelete(false);
   }, [client?.id]);
 
   useEffect(() => {
@@ -50,12 +55,9 @@ export default function ClientDetail({
     .map((cs) => segments.find((s) => s.id === cs.segment_id))
     .filter(Boolean) as Segment[];
 
-  // Only show inbound messages and template broadcasts
-  // Regular outbound free-form messages are excluded — WhatsApp only
-  // delivers them within a 24h service window so their status is unreliable
-  const visibleMessages = messages.filter(
-    (m) => m.direction === "in" || m.is_template,
-  );
+  // Only show broadcast (template) messages
+  // Inbound messages and free-form outbound messages are excluded
+  const visibleMessages = messages.filter((m) => m.is_template);
 
   async function handleSaveFollowUp() {
     if (!client) return;
@@ -68,6 +70,20 @@ export default function ClientDetail({
       onToast("Follow-up date saved");
     } catch {
       onToast("Failed to save follow-up", "error");
+    }
+  }
+
+  async function handleDelete() {
+    if (!client) return;
+    setDeleting(true);
+    try {
+      await onDelete(client.id);
+      onToast(`${client.name} deleted`);
+      onClose();
+    } catch {
+      onToast("Failed to delete client", "error");
+      setDeleting(false);
+      setConfirmDelete(false);
     }
   }
 
@@ -523,6 +539,74 @@ export default function ClientDetail({
               </tbody>
             </table>
           </div>
+
+          <div
+            className="divider"
+            style={{ marginTop: 20, marginBottom: 16 }}
+          />
+
+          {/* Delete client */}
+          {!confirmDelete ? (
+            <button
+              className="btn btn-danger btn-sm"
+              style={{ width: "100%", justifyContent: "center" }}
+              onClick={() => setConfirmDelete(true)}
+            >
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <polyline points="3 6 5 6 21 6" />
+                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                <path d="M10 11v6M14 11v6" />
+                <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+              </svg>
+              Delete client
+            </button>
+          ) : (
+            <div
+              style={{
+                background: "var(--color-danger-bg)",
+                border: "1px solid var(--color-danger-border)",
+                borderRadius: "var(--radius-md)",
+                padding: "12px",
+              }}
+            >
+              <p
+                style={{
+                  fontSize: 13,
+                  color: "var(--color-danger-text)",
+                  marginBottom: 10,
+                  lineHeight: 1.5,
+                }}
+              >
+                Delete <strong>{client.name}</strong>? This removes all their
+                messages and cannot be undone.
+              </p>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  className="btn btn-secondary btn-sm"
+                  style={{ flex: 1 }}
+                  onClick={() => setConfirmDelete(false)}
+                  disabled={deleting}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="btn btn-danger btn-sm"
+                  style={{ flex: 1, justifyContent: "center" }}
+                  onClick={handleDelete}
+                  disabled={deleting}
+                >
+                  {deleting ? "Deleting…" : "Yes, delete"}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </aside>

@@ -99,7 +99,7 @@ export default function LoginForm() {
               letterSpacing: "-0.02em",
             }}
           >
-            WA Lead CRM
+            LeadSpace
           </h1>
           <p
             style={{

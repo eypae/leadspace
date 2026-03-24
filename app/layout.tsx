@@ -3,8 +3,8 @@ import AuthProvider from "@/components/auth/AuthProvider";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "WA Lead CRM",
-  description: "WhatsApp CRM for real estate agents",
+  title: "LeadSpace",
+  description: "WhatsApp CRM for Property Agents.",
   icons: { icon: "/favicon.ico" },
 };
 
